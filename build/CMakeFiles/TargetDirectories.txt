@@ -1,0 +1,3 @@
+/data/jhqiao/workspace/EDA_innovation_competition/build/CMakeFiles/FRouter.dir
+/data/jhqiao/workspace/EDA_innovation_competition/build/CMakeFiles/edit_cache.dir
+/data/jhqiao/workspace/EDA_innovation_competition/build/CMakeFiles/rebuild_cache.dir
