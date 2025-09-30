@@ -65,7 +65,6 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // UPDATED: File paths are now relative to the project root.
-    // This works because the executable will be run from the 'build' directory.
     const std::string data_prefix = "benchmarks/case04/";
     const std::string info_file = data_prefix + "design.info";
     const std::string net_file = data_prefix + "design.net";
