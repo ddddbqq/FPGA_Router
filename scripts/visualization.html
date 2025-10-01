@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPGA Connection Visualization Tool</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+        }
+        #file-input {
+            display: none;
+        }
+        #file-label {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #file-label:hover {
+            background-color: #0056b3;
+        }
+        #file-name {
+            margin-left: 15px;
+            font-style: italic;
+            color: #555;
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .fpga-node {
+            fill: #4A90E2;
+            stroke: #2C5787;
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        .fpga-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: white;
+            text-anchor: middle;
+            pointer-events: none; /* Make text non-interactive */
+        }
+        .physical-link {
+            stroke: #999;
+            stroke-width: 1.5px;
+            stroke-dasharray: 4 2;
+        }
+        .physical-link-label {
+            font-size: 12px;
+            fill: #555;
+            text-anchor: middle;
+        }
+        .logical-link {
+            stroke: #F5A623;
+            stroke-opacity: 0.7;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>FPGA Physical & Logical Connection Visualization</h1>
+        <div class="controls">
+            <input type="file" id="file-input" accept=".json">
+            <label for="file-input" id="file-label">Select visualization_data.json File</label>
+            <span id="file-name">No file chosen</span>
+        </div>
+        <div id="visualization"></div>
+    </div>
+    
+    <div class="tooltip"></div>
+
+    <script>
+        document.getElementById('file-input').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('file-name').textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        drawVisualization(data);
+                    } catch (error) {
+                        alert('Error: Unable to parse JSON file. Please ensure the file format is correct.\n' + error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function drawVisualization(data) {
+            // Clear old SVG
+            d3.select("#visualization").select("svg").remove();
+            
+            const width = 800;
+            const height = 600;
+            const margin = 50;
+            
+            const svg = d3.select("#visualization").append("svg")
+                .attr("viewBox", `0 0 ${width} ${height}`);
+
+            const tooltip = d3.select(".tooltip");
+
+            // 1. Calculate FPGA node positions
+            const numNodes = data.nodes.length;
+            const cols = Math.ceil(Math.sqrt(numNodes));
+            const rows = Math.ceil(numNodes / cols);
+            const xSpacing = (width - 2 * margin) / (cols > 1 ? cols - 1 : 1);
+            const ySpacing = (height - 2 * margin) / (rows > 1 ? rows - 1 : 1);
+
+            data.nodes.forEach((node, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                node.x = cols > 1 ? margin + col * xSpacing : width / 2;
+                node.y = rows > 1 ? margin + row * ySpacing : height / 2;
+            });
+
+            const nodeById = d3.index(data.nodes, d => d.id);
+            const nodeRadius = 20;
+
+            // 2. Draw logical connections (thickness represents demand)
+            if (data.logical_links && data.logical_links.length > 0) {
+                const maxDemand = d3.max(data.logical_links, d => d.demand);
+                const thicknessScale = d3.scaleSqrt().domain([1, maxDemand]).range([2, 20]);
+                
+                svg.append("g")
+                    .selectAll("line")
+                    .data(data.logical_links)
+                    .enter().append("line")
+                    .attr("class", "logical-link")
+                    .attr("x1", d => nodeById.get(d.source).x)
+                    .attr("y1", d => nodeById.get(d.source).y)
+                    .attr("x2", d => nodeById.get(d.target).x)
+                    .attr("y2", d => nodeById.get(d.target).y)
+                    .style("stroke-width", d => thicknessScale(d.demand))
+                    .on("mouseover", (event, d) => {
+                        tooltip.transition().style("opacity", .9);
+                        tooltip.html(`Logical Connection Count: ${d.demand}`)
+                            .style("left", (event.pageX + 5) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.transition().style("opacity", 0);
+                    });
+            }
+
+            // 3. Draw physical connections (dashed lines) and channel labels
+            if (data.physical_links) {
+                const physicalLinks = svg.append("g")
+                    .selectAll("g")
+                    .data(data.physical_links)
+                    .enter().append("g");
+
+                physicalLinks.append("line")
+                    .attr("class", "physical-link")
+                    .attr("x1", d => nodeById.get(d.source).x)
+                    .attr("y1", d => nodeById.get(d.source).y)
+                    .attr("x2", d => nodeById.get(d.target).x)
+                    .attr("y2", d => nodeById.get(d.target).y);
+                
+                physicalLinks.append("text")
+                    .attr("class", "physical-link-label")
+                    .attr("x", d => (nodeById.get(d.source).x + nodeById.get(d.target).x) / 2)
+                    .attr("y", d => (nodeById.get(d.source).y + nodeById.get(d.target).y) / 2)
+                    .attr("dy", -5) // slightly offset the label
+                    .text(d => `Channels: ${d.channels}`);
+            }
+
+            // 4. Draw FPGA nodes and labels (on top layer)
+            const nodeGroup = svg.append("g")
+                .selectAll("g")
+                .data(data.nodes)
+                .enter().append("g")
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            nodeGroup.append("circle")
+                .attr("class", "fpga-node")
+                .attr("r", nodeRadius);
+
+            nodeGroup.append("text")
+                .attr("class", "fpga-label")
+                    .attr("dy", "0.35em") // Vertically center
+                    .text(d => `F${d.id}`);
+        }
+    </script>
+</body>
+</html>

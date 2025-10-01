@@ -65,11 +65,13 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // UPDATED: File paths are now relative to the project root.
-    const std::string data_prefix = "benchmarks/case04/";
+    const std::string data_prefix = "benchmarks/case03/";
     const std::string info_file = data_prefix + "design.info";
     const std::string net_file = data_prefix + "design.net";
     const std::string topo_file = data_prefix + "design.topo";
     const std::string fpga_map_file = data_prefix + "design.fpga.out";
+
+    const std::string viz_output_file = "scripts/visualization_data.json";
 
     try {
         Design design;
@@ -97,6 +99,8 @@ int main() {
         std::cout << "File loading time: " << load_duration.count() << " milliseconds" << std::endl;
         // Print a summary of the parsed data for verification.
         // printDesignStats(design);
+
+        design.generateVisualizationData(viz_output_file);
 
     } catch (const std::exception& e) {
         std::cerr << "An error occurred: " << e.what() << std::endl;

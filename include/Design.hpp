@@ -42,6 +42,13 @@ public:
      */
     void loadFpgaMapping(const std::string& filename);
 
+
+    /**
+     * @brief Analyzes the loaded data and generates a JSON file for visualization.
+     * @param filename The path for the output JSON file.
+     */
+    void generateVisualizationData(const std::string& filename) const; // Added const
+
     // Public getters to access the parsed data.
     const std::vector<FPGA>& getFpgas() const { return fpgas_; }
     const std::unordered_map<int, Node>& getNodes() const { return nodes_; }

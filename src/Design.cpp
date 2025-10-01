@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <utility>
+#include <fstream>
 
 // Logical parsing order:
 // 1. Info: To know how many FPGAs exist and their properties.
@@ -144,3 +145,86 @@ void Design::loadTopo(const std::string& filename) {
     }
 }
 
+/**
+ * @brief Generate visualization data.
+ */
+void Design::generateVisualizationData(const std::string& filename) const {
+    if (fpgas_.empty() || nets_.empty() || topology_.empty()) {
+        throw std::logic_error("Visualization Error: Not all data has been loaded.");
+    }
+
+    size_t num_fpgas = fpgas_.size();
+    std::vector<std::vector<int>> logical_demand(num_fpgas, std::vector<int>(num_fpgas, 0));
+
+    // Calculate logical demand between each pair of FPGAs.
+    for (const auto& net : nets_) {
+        if (!net.source || !net.source->fpga) continue;
+        int src_fpga_idx = net.source->fpga->id - 1;
+
+        for (const auto& sink : net.sinks) {
+            if (!sink || !sink->fpga) continue;
+            int sink_fpga_idx = sink->fpga->id - 1;
+
+            if (src_fpga_idx != sink_fpga_idx) {
+                logical_demand[src_fpga_idx][sink_fpga_idx]++;
+                // Since it's an undirected representation of demand, increment both ways.
+                logical_demand[sink_fpga_idx][src_fpga_idx]++;
+            }
+        }
+    }
+    
+    std::ofstream json_file(filename);
+    if (!json_file.is_open()) {
+        throw std::runtime_error("Visualization Error: Cannot open file for writing: " + filename);
+    }
+
+    // --- Write JSON data ---
+    json_file << "{\n";
+
+    // Write nodes (FPGAs)
+    json_file << "  \"nodes\": [\n";
+    for (size_t i = 0; i < num_fpgas; ++i) {
+        json_file << "    {\"id\": " << (i + 1) << "}";
+        if (i < num_fpgas - 1) {
+            json_file << ",";
+        }
+        json_file << "\n";
+    }
+    json_file << "  ],\n";
+
+    // Write physical links
+    json_file << "  \"physical_links\": [\n";
+    bool first_link = true;
+    for (size_t i = 0; i < num_fpgas; ++i) {
+        for (size_t j = i + 1; j < num_fpgas; ++j) {
+            if (topology_[i][j] > 0) {
+                if (!first_link) {
+                    json_file << ",\n";
+                }
+                json_file << "    {\"source\": " << (i + 1) << ", \"target\": " << (j + 1) << ", \"channels\": " << topology_[i][j] << "}";
+                first_link = false;
+            }
+        }
+    }
+    json_file << "\n  ],\n";
+
+    // Write logical links
+    json_file << "  \"logical_links\": [\n";
+    first_link = true;
+    for (size_t i = 0; i < num_fpgas; ++i) {
+        for (size_t j = i + 1; j < num_fpgas; ++j) {
+            if (logical_demand[i][j] > 0) {
+                 if (!first_link) {
+                    json_file << ",\n";
+                }
+                // We divided by 2 because we double-counted during calculation.
+                json_file << "    {\"source\": " << (i + 1) << ", \"target\": " << (j + 1) << ", \"demand\": " << logical_demand[i][j] / 2 << "}";
+                first_link = false;
+            }
+        }
+    }
+    json_file << "\n  ]\n";
+
+    json_file << "}\n";
+    json_file.close();
+}
