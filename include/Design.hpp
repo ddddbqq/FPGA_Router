@@ -1,10 +1,9 @@
 #ifndef DESIGN_HPP
 #define DESIGN_HPP
 
+#include "Global.hpp"
 #include "DataTypes.hpp"
-#include <vector>
-#include <string>
-#include <unordered_map>
+
 
 /**
  * @class Design
@@ -48,6 +47,15 @@ public:
      * @param filename The path for the output JSON file.
      */
     void generateVisualizationData(const std::string& filename) const; // Added const
+    
+    /**
+     * @brief Groups nets based on their FPGA connection patterns.
+     * @return A vector of net groups, where each group is a vector of net IDs.
+     *         Nets with the same source and sink FPGA connections are grouped together.
+     *         If multiple nodes are on the same FPGA, they are counted as one connection.
+     *         The connection pattern shows the source FPGA and each sink FPGA with the count of nodes.
+     */
+    std::vector<std::vector<int>> groupNetsByFpgaConnection() const;
 
     // Public getters to access the parsed data.
     const std::vector<FPGA>& getFpgas() const { return fpgas_; }

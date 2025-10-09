@@ -1,6 +1,5 @@
 #include "FastParser.hpp"
-#include <cstdio>
-#include <stdexcept>
+
 
 FastParser::FastParser(const std::string& filename) : buffer_(nullptr), current_pos_(nullptr), file_size_(0) {
     // Open the file in binary read mode.

@@ -4,6 +4,8 @@
 #include <vector>
 #include <utility>
 #include <fstream>
+#include <algorithm>
+#include <map>
 
 // Logical parsing order:
 // 1. Info: To know how many FPGAs exist and their properties.
@@ -227,4 +229,70 @@ void Design::generateVisualizationData(const std::string& filename) const {
 
     json_file << "}\n";
     json_file.close();
+}
+
+/**
+ * @brief Groups nets based on their FPGA connection patterns.
+ * @return A vector of net groups, where each group is a vector of net IDs.
+ *         Nets with the same source and sink FPGA connections are grouped together.
+ *         If multiple nodes are on the same FPGA, they are counted as one connection.
+ *         The connection pattern shows the source FPGA and each sink FPGA with the count of nodes.
+ */
+std::vector<std::vector<int>> Design::groupNetsByFpgaConnection() const {
+    // 检查必要的数据是否已加载
+    if (nets_.empty() || fpgas_.empty()) {
+        throw std::logic_error("Grouping Error: Nets and FPGAs must be loaded before grouping.");
+    }
+    
+    // 使用map来存储具有相同FPGA连接模式的net组
+    // 键是一个表示FPGA连接模式的字符串，值是对应的net ID列表
+    std::map<std::string, std::vector<int>> connectionGroups;
+    
+    // 遍历所有net
+    for (const auto& net : nets_) {
+        // 跳过无效的net（没有source或fpga信息）
+        if (!net.source || !net.source->fpga) {
+            continue;
+        }
+        
+        // 获取源FPGA ID
+        int srcFpgaId = net.source->fpga->id;
+        
+        // 收集所有sink所在的FPGA ID，并统计每个FPGA上的节点数量
+        std::map<int, int> sinkFpgaCounts; // FPGA ID -> 节点数量
+        
+        for (const auto& sink : net.sinks) {
+            if (sink && sink->fpga) {
+                // 如果sink与source在同一个FPGA上，则忽略
+                if (sink->fpga->id == srcFpgaId) {
+                    continue;
+                }
+                
+                // 统计每个FPGA上的节点数量
+                sinkFpgaCounts[sink->fpga->id]++;
+            }
+        }
+        
+        // 创建连接模式字符串，格式为: "srcFPGA_id:sinkFPGA1_id(count),sinkFPGA2_id(count),..."
+        std::string connectionPattern = std::to_string(srcFpgaId) + ":";
+        
+        // 对sink FPGA ID进行排序，确保连接模式的一致性
+        for (const auto& pair : sinkFpgaCounts) {
+            if (connectionPattern.length() > std::to_string(srcFpgaId).length() + 1) {
+                connectionPattern += ",";
+            }
+            connectionPattern += std::to_string(pair.first) + "(" + std::to_string(pair.second) + ")";
+        }
+        
+        // 将当前net ID添加到对应的连接模式组中
+        connectionGroups[connectionPattern].push_back(net.id);
+    }
+    
+    // 将map转换为vector<vector<int>>格式返回
+    std::vector<std::vector<int>> result;
+    for (const auto& group : connectionGroups) {
+        result.push_back(group.second);
+    }
+    
+    return result;
 }

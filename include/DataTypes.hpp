@@ -1,8 +1,7 @@
 #ifndef DATATYPES_HPP
 #define DATATYPES_HPP
 
-#include <vector>
-#include <string>
+#include "Global.hpp"
 
 // Forward declaration to resolve circular dependency between Node and FPGA.
 class FPGA;

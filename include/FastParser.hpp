@@ -1,7 +1,7 @@
 #ifndef FAST_PARSER_HPP
 #define FAST_PARSER_HPP
 
-#include <string>
+#include "Global.hpp"
 
 /**
  * @class FastParser

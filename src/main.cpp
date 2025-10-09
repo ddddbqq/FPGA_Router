@@ -1,63 +1,5 @@
 #include "Design.hpp"
-#include <iostream>
-#include <string>
-#include <filesystem>
-#include <chrono>
-
-// Function to print some stats to verify the parser worked correctly.
-void printDesignStats(const Design& design) {
-    std::cout << "--- Design Statistics ---" << std::endl;
-
-    // Print FPGA info
-    const auto& fpgas = design.getFpgas();
-    std::cout << "Total FPGAs: " << fpgas.size() << std::endl;
-    for (const auto& fpga : fpgas) {
-        if (fpga.id != -1) {
-            std::cout << "  FPGA F" << fpga.id << ": Max IO = " << fpga.max_io 
-                      << ", Mapped Nodes = " << fpga.nodes.size() << std::endl;
-        }
-    }
-
-    // Print Node info
-    const auto& nodes = design.getNodes();
-    std::cout << "\nTotal Logical Nodes: " << nodes.size() << std::endl;
-    // Example: print info for a few nodes
-    int count = 0;
-    for (const auto& pair : nodes) {
-        if (count < 5 && pair.second.fpga) {
-             std::cout << "  Node g" << pair.second.id << " is on FPGA F" 
-                       << pair.second.fpga->id << std::endl;
-             count++;
-        } else if (count >= 5) {
-            break;
-        }
-    }
-
-
-    // Print Net info
-    const auto& nets = design.getNets();
-    std::cout << "\nTotal Nets: " << nets.size() << std::endl;
-    if (!nets.empty()) {
-        const auto& first_net = nets[0];
-        if (first_net.source) {
-            std::cout << "  Example Net " << first_net.id << ": Source g" << first_net.source->id
-                      << " -> " << first_net.sinks.size() << " sinks." << std::endl;
-        }
-    }
-
-    // Print Topology info
-    const auto& topo = design.getTopology();
-    std::cout << "\nTopology Matrix (" << topo.size() << "x" << topo.size() << "):" << std::endl;
-    for (size_t i = 0; i < topo.size(); ++i) {
-        std::cout << "  F" << i + 1 << ": ";
-        for (size_t j = 0; j < topo[i].size(); ++j) {
-            std::cout << topo[i][j] << (j == topo[i].size() - 1 ? "" : ", ");
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "-------------------------" << std::endl;
-}
+#include "Utils.hpp"
 
 
 
@@ -101,6 +43,10 @@ int main() {
         // printDesignStats(design);
 
         design.generateVisualizationData(viz_output_file);
+        
+        // 输出net group信息到文件
+        const std::string net_groups_file = "scripts/net_groups.txt";
+        outputNetGroupsToFile(design, net_groups_file);
 
     } catch (const std::exception& e) {
         std::cerr << "An error occurred: " << e.what() << std::endl;
